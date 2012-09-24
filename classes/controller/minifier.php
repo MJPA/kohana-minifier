@@ -53,7 +53,8 @@ class Controller_Minifier extends Controller
     }
 
     require_once dirname(__FILE__).'/../../vendor/cssmin/cssmin.php';
-    $output = CssMin::minify($output);
+    $cssmin = new CSSmin();
+    $output = $cssmin->run($output);
 
     // Cache this (new) version
     Minifier::set_cache('css', $files, $output);
