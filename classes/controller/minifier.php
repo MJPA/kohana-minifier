@@ -7,8 +7,16 @@ class Controller_Minifier extends Controller
     $this->response->headers('Content-Type', 'text/css; charset=utf-8');
 
     $files = $this->get_file_list('css');
-    $output = '';
 
+    // get_cache will check if the cache is stale or not.
+    $cached = Minifier::get_cache('css', $files);
+    if ( ! empty($cached))
+    {
+      $this->response->body($cached);
+      return;
+    }
+
+    $output = '';
     $sass_parser = NULL;
     foreach ($files as $file)
     {
@@ -47,6 +55,9 @@ class Controller_Minifier extends Controller
     require_once dirname(__FILE__).'/../../vendor/cssmin/cssmin.php';
     $output = CssMin::minify($output);
 
+    // Cache this (new) version
+    Minifier::set_cache('css', $files, $output);
+
     $this->response->body($output);
   }
 
@@ -55,13 +66,24 @@ class Controller_Minifier extends Controller
     $this->response->headers('Content-Type', 'text/javascript; charset=utf-8');
 
     $files = $this->get_file_list('js');
-    $output = '';
 
+    // get_cache will check if the cache is stale or not.
+    $cached = Minifier::get_cache('js', $files);
+    if ( ! empty($cached))
+    {
+      $this->response->body($cached);
+      return;
+    }
+
+    $output = '';
     foreach ($files as $file)
       $output .= file_get_contents($file);
 
     require_once dirname(__FILE__).'/../../vendor/jsmin/jsmin.php';
     $output = JSMin::minify($output);
+
+    // Cache this (new) version
+    Minifier::set_cache('js', $files, $output);
 
     $this->response->body($output);
   }

@@ -16,8 +16,6 @@ There are 2 configuration options, `css_base_path` and `js_base_path` which prov
 SASS / SCSS support is provided by [PHPSass](https://github.com/MJPA/phpsass) automatically for files ending in either `.scss` or `.sass`.
 
 ## TODO
-Cache support - currently none of the output is cached which needs fixing before use in production environments.
-
 Allow configuration of cssmin/jsmin/phpsass.
 
 Allow adding a string of CSS / JS rather than just files.
