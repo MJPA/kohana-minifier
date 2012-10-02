@@ -45,7 +45,7 @@ class Minifier {
   private static function _get_url($type)
   {
     if ( ! empty(self::$_data[$type]))
-      return URL::site($type.'/'.implode(',', self::$_data[$type]), NULL, FALSE);
+      return $type.'/'.implode(',', self::$_data[$type]);
   }
 
   private static function get_cache_filename($type, $files)
