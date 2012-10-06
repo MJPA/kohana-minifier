@@ -23,19 +23,15 @@ class Controller_Minifier extends Controller
       $extension = pathinfo($file, PATHINFO_EXTENSION);
       if (in_array($extension, array('sass', 'scss')))
       {
-        if ($sass_parser === NULL)
-        {
-          require_once dirname(__FILE__).'/../../vendor/phpsass/SassParser.php';
-          $options = array(
-            'style' => 'expanded',
-            'cache' => FALSE,
-            'syntax' => $extension,
-            'debug' => FALSE,
-            'callbacks' => array(),
-          );
-
-          $parser = new SassParser($options);
-        }
+        require_once Kohana::find_file('vendor', 'phpsass/SassParser');
+        $options = array(
+          'style' => 'expanded',
+          'cache' => FALSE,
+          'syntax' => $extension,
+          'debug' => FALSE,
+          'callbacks' => array(),
+        );
+        $parser = new SassParser($options);
 
         try
         {
@@ -50,7 +46,14 @@ class Controller_Minifier extends Controller
       {
         require_once Kohana::find_file('vendor', 'lessphp/lessc.inc');
         $less = new lessc;
-        $output .= $less->compileFile($file);
+        try
+        {
+          $output .= $less->compileFile($file);
+        }
+        catch (Exception $e)
+        {
+          Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
+        }
       }
       else
       {
@@ -58,8 +61,8 @@ class Controller_Minifier extends Controller
       }
     }
 
-    require_once dirname(__FILE__).'/../../vendor/cssmin/cssmin.php';
-    $cssmin = new CSSmin();
+    require_once Kohana::find_file('vendor', 'cssmin/cssmin');
+    $cssmin = new CSSmin;
     $output = $cssmin->run($output);
 
     // Cache this (new) version
@@ -84,9 +87,11 @@ class Controller_Minifier extends Controller
 
     $output = '';
     foreach ($files as $file)
+    {
       $output .= file_get_contents($file);
+    }
 
-    require_once dirname(__FILE__).'/../../vendor/jsmin/jsmin.php';
+    require_once Kohana::find_file('vendor', 'jsmin/jsmin');
     $output = JSMin::minify($output);
 
     // Cache this (new) version
@@ -105,13 +110,19 @@ class Controller_Minifier extends Controller
     foreach ($raw_files as $file)
     {
       if (substr($file, 0, 1) != '/')
+      {
         $file = realpath($base_path . $file);
+      }
       else
+      {
         $file = realpath($file);
+      }
 
       // Make sure file is in the base path and is readable
       if ( ! strncmp($file, $base_path, $base_path_len) AND is_readable($file))
+      {
         $files[] = $file;
+      }
     }
 
     return $files;
@@ -123,7 +134,9 @@ class Controller_Minifier extends Controller
     $base_path = $config->get($type.'_base_path');
 
     if (substr($base_path, -1) != DIRECTORY_SEPARATOR)
+    {
       $base_path .= DIRECTORY_SEPARATOR;
+    }
 
     return $base_path;
   }
