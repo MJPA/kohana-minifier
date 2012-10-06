@@ -46,6 +46,12 @@ class Controller_Minifier extends Controller
           Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
         }
       }
+      else if ($extension == 'less')
+      {
+        require_once Kohana::find_file('vendor', 'lessphp/lessc.inc');
+        $less = new lessc;
+        $output .= $less->compileFile($file);
+      }
       else
       {
         $output .= file_get_contents($file);
