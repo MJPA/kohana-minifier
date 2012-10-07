@@ -40,6 +40,7 @@ class Controller_Minifier extends Controller
         try
         {
           $output .= $parser->toCss($file);
+          $extra_files = array_merge($extra_files, array_keys($parser->getParsedFiles()));
         }
         catch (Exception $e)
         {
