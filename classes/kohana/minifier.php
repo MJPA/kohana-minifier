@@ -24,15 +24,15 @@ class Kohana_Minifier
       return FALSE;
     }
 
-    if ( ! is_array($data))
-    {
-      $data = array($data);
-    }
-
     // Ensure the section exists
     if ( ! array_key_exists($section, self::$_data[$type]))
     {
       self::$_data[$type][$section] = array();
+    }
+
+    if ( ! is_array($data))
+    {
+      $data = array($data);
     }
 
     foreach ($data as $datum)
@@ -43,24 +43,38 @@ class Kohana_Minifier
     return TRUE;
   }
 
-  public static function get_css($section = '*')
+  public static function get_css($sections = NULL)
   {
-    $url = self::_get_url('css', $section);
-    return empty($url) ? '' : HTML::style($url);
+    return self::_get_type('css', 'style', $sections);
   }
 
-  public static function get_js($section = '*')
+  public static function get_js($sections = NULL)
   {
-    $url = self::_get_url('js', $section);
-    return empty($url) ? '' : HTML::script($url);
+    return self::_get_type('js', 'script', $sections);
   }
 
-  private static function _get_url($type, $section = '*')
+  private static function _get_type($type, $method, $sections = NULL)
   {
-    if ( ! empty(self::$_data[$type][$section]))
+    if ($sections === NULL)
     {
-      return $type.'/'.implode(',', self::$_data[$type][$section]);
+      $sections = array_keys(self::$_data[$type]);
     }
+    else if (is_string($sections))
+    {
+      $sections = array($sections);
+    }
+
+    $output = '';
+    foreach ($sections as $section)
+    {
+      if ( ! empty(self::$_data[$type][$section]))
+      {
+        $url = $type.'/'.implode(',', self::$_data[$type][$section]);
+        $output .= HTML::$method($url);
+      }
+    }
+
+    return $output;
   }
 
   private static function get_cache_filename($type, $files)
