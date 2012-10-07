@@ -7,6 +7,10 @@ class Controller_Minifier extends Controller
     $this->response->headers('Content-Type', 'text/css; charset=utf-8');
 
     $files = $this->get_file_list('css');
+    if (empty($files))
+    {
+      return;
+    }
 
     // get_cache will check if the cache is stale or not.
     $cached = Minifier::get_cache('css', $files);
@@ -82,6 +86,10 @@ class Controller_Minifier extends Controller
     $this->response->headers('Content-Type', 'text/javascript; charset=utf-8');
 
     $files = $this->get_file_list('js');
+    if (empty($files))
+    {
+      return;
+    }
 
     // get_cache will check if the cache is stale or not.
     $cached = Minifier::get_cache('js', $files);
