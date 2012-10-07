@@ -17,7 +17,7 @@ class Controller_Minifier extends Controller
     }
 
     $output = '';
-    $sass_parser = NULL;
+    $extra_files = array();
     foreach ($files as $file)
     {
       $extension = pathinfo($file, PATHINFO_EXTENSION);
@@ -49,6 +49,12 @@ class Controller_Minifier extends Controller
         try
         {
           $output .= $less->compileFile($file);
+
+          // Get the parsed files and remove the file that was requested because we track that already.
+          $less_files = $less->allParsedFiles();
+          unset($less_files[$file]);
+
+          $extra_files = array_merge($extra_files, array_keys($less_files));
         }
         catch (Exception $e)
         {
@@ -66,7 +72,7 @@ class Controller_Minifier extends Controller
     $output = $cssmin->run($output);
 
     // Cache this (new) version
-    Minifier::set_cache('css', $files, $output);
+    Minifier::set_cache('css', $files, $output, $extra_files);
 
     $this->response->body($output);
   }
