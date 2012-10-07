@@ -14,3 +14,6 @@ There are 2 configuration options, `css_base_path` and `js_base_path` which prov
 
 ## SASS / SCSS support
 SASS / SCSS support is provided by [PHPSass](https://github.com/MJPA/phpsass) automatically for files ending in either `.scss` or `.sass`.
+
+## LESS support
+LESS support is provided by [LessPHP](https://github.com/leafo/lessphp) automatically for files ending in `.less`.
