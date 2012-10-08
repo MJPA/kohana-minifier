@@ -5,6 +5,7 @@ class Kohana_Minifier
   private static $_data = array(
     'css' => array(),
     'js' => array(),
+    'less' => array()
   );
 
   public static function add_css($css, $section = '*')
@@ -15,6 +16,11 @@ class Kohana_Minifier
   public static function add_js($js, $section = '*')
   {
     self::_add_data('js', $js, $section);
+  }
+
+  public static function add_less($js, $section = '*')
+  {
+    self::_add_data('less', $js, $section);
   }
 
   private static function _add_data($type, $data, $section = '*')
@@ -47,6 +53,12 @@ class Kohana_Minifier
   {
     return self::_get_type('css', 'style', $sections);
   }
+
+  public static function get_less($sections = NULL)
+  {
+    return self::_get_type('less', 'style', $sections);
+  }
+
 
   public static function get_js($sections = NULL)
   {

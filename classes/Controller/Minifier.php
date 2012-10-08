@@ -2,6 +2,66 @@
 
 class Controller_Minifier extends Controller
 {
+
+  public function action_less()
+  {
+    $this->response->headers('Content-Type', 'text/css; charset=utf-8');
+
+    $files = $this->get_file_list('less');
+    if (empty($files))
+    {
+      return;
+    }
+
+    // get_cache will check if the cache is stale or not.
+    $cached = Minifier::get_cache('less', $files);
+    if ( ! empty($cached))
+    {
+      $this->response->body($cached);
+      return;
+    }
+
+    $output = '';
+    $extra_files = array();
+    foreach ($files as $file)
+    {
+      $extension = pathinfo($file, PATHINFO_EXTENSION);
+      if ($extension == 'less')
+      {
+        require_once Kohana::find_file('vendor', 'lessphp/lessc.inc');
+        $less = new lessc;
+        try
+        {
+          $output .= $less->compileFile($file);
+
+          // Get the parsed files and remove the file that was requested because we track that already.
+          $less_files = $less->allParsedFiles();
+          unset($less_files[$file]);
+
+          $extra_files = array_merge($extra_files, array_keys($less_files));
+        }
+        catch (Exception $e)
+        {
+          Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
+        }
+      }
+      else
+      {
+        $output .= file_get_contents($file);
+      }
+    }
+
+    require_once Kohana::find_file('vendor', 'cssmin/cssmin');
+    $cssmin = new CSSmin;
+    $output = $cssmin->run($output);
+
+    // Cache this (new) version
+    Minifier::set_cache('less', $files, $output, $extra_files);
+
+    $this->response->body($output);
+  }
+  
+  
   public function action_css()
   {
     $this->response->headers('Content-Type', 'text/css; charset=utf-8');

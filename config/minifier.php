@@ -6,4 +6,8 @@ return array(
 
   'js_base_path' => $_SERVER['DOCUMENT_ROOT'].DIRECTORY_SEPARATOR.'js',
   'js_cache_path' => APPPATH.'cache/minifier.js',
+  
+  'less_base_path' => $_SERVER['DOCUMENT_ROOT'].DIRECTORY_SEPARATOR.'less',
+  'less_cache_path' => APPPATH.'cache/minifier-less.css',
+
 );
