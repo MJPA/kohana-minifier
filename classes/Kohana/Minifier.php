@@ -18,9 +18,9 @@ class Kohana_Minifier
     self::_add_data('js', $js, $section);
   }
 
-  public static function add_less($js, $section = '*')
+  public static function add_less($less, $section = '*')
   {
-    self::_add_data('less', $js, $section);
+    self::_add_data('less', $less, $section);
   }
 
   private static function _add_data($type, $data, $section = '*')
