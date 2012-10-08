@@ -163,7 +163,7 @@ class Controller_Minifier extends Controller
     $output = '';
     foreach ($files as $file)
     {
-      $output .= file_get_contents($file);
+      $output .= ';'.file_get_contents($file);
     }
 
     require_once Kohana::find_file('vendor', 'jsmin/jsmin');
