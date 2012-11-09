@@ -3,8 +3,8 @@
 class Kohana_Minifier
 {
   private static $_data = array(
-    'css' => array(),
-    'js' => array(),
+    'css' => array('*' => array()),
+    'js' => array('*' => array()),
   );
 
   public static function add_css($css, $section = '*')
@@ -43,17 +43,17 @@ class Kohana_Minifier
     return TRUE;
   }
 
-  public static function get_css($sections = NULL)
+  public static function get_css($sections = NULL, $query = array())
   {
-    return self::_get_type('css', 'style', $sections);
+    return self::_get_type('css', 'style', $sections, $query);
   }
 
-  public static function get_js($sections = NULL)
+  public static function get_js($sections = NULL, $query = array())
   {
-    return self::_get_type('js', 'script', $sections);
+    return self::_get_type('js', 'script', $sections, $query);
   }
 
-  private static function _get_type($type, $method, $sections = NULL)
+  private static function _get_type($type, $method, $sections = NULL, $query = array())
   {
     if ($sections === NULL)
     {
@@ -69,7 +69,26 @@ class Kohana_Minifier
     {
       if ( ! empty(self::$_data[$type][$section]))
       {
-        $url = $type.'/'.implode(',', self::$_data[$type][$section]);
+        $file_list = self::get_file_list($type, $section);
+        $cache_file = self::get_cache_filename($type, $file_list);
+
+        // New cache file? Prime the filemtime values with 0s to force rebuild
+        if ( ! file_exists($cache_file))
+        {
+          $fake_mtimes = array_fill_keys($file_list, 0);
+          $cache_data = serialize(array('files' => $fake_mtimes));
+          file_put_contents($cache_file, $cache_data);
+        }
+
+        // Add the URL to output
+        $url = $type.'/'.basename($cache_file).'.'.$type;
+
+        // Query string?
+        if ( ! empty($query))
+        {
+          $url .= '?'.http_build_query($query);
+        }
+
         $output .= HTML::$method($url);
       }
     }
@@ -77,81 +96,90 @@ class Kohana_Minifier
     return $output;
   }
 
-  private static function get_cache_filename($type, $files)
+  private static function get_cache_location($type)
   {
     $config = Kohana::$config->load('minifier');
-    return $config->get($type.'_cache_path').DIRECTORY_SEPARATOR.md5(serialize($files)).'.cache';
-  }
-
-  private static function get_cache_files_filename($type, $files)
-  {
-    return self::get_cache_filename($type, $files).'-files';
-  }
-
-  public static function get_cache($type, $files)
-  {
-    // First just check if the cached file exists
-    $cache_filename = self::get_cache_filename($type, $files);
-    if ( ! is_readable($cache_filename))
+    $directory = $config->get($type.'_cache_path');
+    if ( ! is_dir($directory))
     {
-      return FALSE;
+      mkdir($directory);
     }
 
-    // The $files array contains files that exist and are readable so we can just check filemtime easily
-    $cache_mtime = filemtime($cache_filename);
-    foreach ($files as $file)
+    return $directory;
+  }
+
+  private static function get_cache_filename($type, $files)
+  {
+    $directory = self::get_cache_location($type);
+    return $directory.DIRECTORY_SEPARATOR.md5(implode(',', $files));
+  }
+
+  public static function set_cache($type, $data)
+  {
+    if (empty($data['file_hash']))
     {
-      // No need to check existance, $files array must only contain files that exist.
-      if (filemtime($file) > $cache_mtime)
+      $cache_filename = self::get_cache_filename($type, array_keys($data['files']));
+    }
+    else
+    {
+      $cache_filename = self::get_cache_location($type).DIRECTORY_SEPARATOR.$data['file_hash'];
+    }
+    $cache_data = serialize($data);
+
+    $bytes = file_put_contents($cache_filename, $cache_data);
+
+    return is_int($bytes);
+  }
+
+  private static function get_file_list($type, $section)
+  {
+    if ( ! isset(self::$_data[$type][$section]))
+    {
+      return array();
+    }
+
+    $raw_files = self::$_data[$type][$section];
+    $files = array();
+    foreach ($raw_files as $file)
+    {
+      $base_path = self::get_base_path($type, $file);
+      $base_path_len = strlen($base_path);
+
+      if (substr($file, 0, 1) != '/')
       {
-        return FALSE;
+        $file = realpath($base_path . $file);
+      }
+      else
+      {
+        $file = realpath($file);
+      }
+
+      // Make sure file is in the base path and is readable
+      if ( ! strncmp($file, $base_path, $base_path_len) AND is_readable($file))
+      {
+        $files[] = $file;
       }
     }
 
-    // Check the cache files file too, this will contain any extra files used to generate the cache, eg via @import.
-    $cache_files_filename = self::get_cache_files_filename($type, $files);
-    if (is_readable($cache_files_filename))
-    {
-      // Below included file will populate $cache_files
-      $cache_files = array();
-      require_once $cache_files_filename;
-
-      // We check existance here because if the file no longer exists the imported content will be different too.
-      foreach ($cache_files as $cache_file)
-      {
-        if ( ! is_readable($cache_file) OR filemtime($cache_file) > $cache_mtime)
-        {
-          return FALSE;
-        }
-      }
-    }
-
-    // If we get to here, then the cache exists and nothing in it is newer
-    return file_get_contents($cache_filename);
+    return $files;
   }
 
-  public static function set_cache($type, $files, $data, $extra_files = array())
+  private static function get_base_path($type, $file)
   {
-    $cache_filename = self::get_cache_filename($type, $files);
+    $config = Kohana::$config->load('minifier');
 
-    // Will be set to false if we have issues so the cache write isn't attempted.
-    $save_cache = TRUE;
-
-    // Attempt to make sure the cache dir exists
-    $cache_dir = dirname($cache_filename);
-    if ( ! is_dir($cache_dir))
+    // We allow the extension to determine the base path too!
+    $extension = pathinfo($file, PATHINFO_EXTENSION);
+    if (($base_path = $config->get($extension.'_base_path')) === NULL)
     {
-      $save_cache = mkdir($cache_dir);
+      $base_path = $config->get($type.'_base_path');
     }
 
-    // Save the extra files used to generate the cache
-    if ( ! empty($extra_files))
+    if (substr($base_path, -1) != DIRECTORY_SEPARATOR)
     {
-      $cache_files_filename = self::get_cache_files_filename($type, $files);
-      $save_cache = is_int(file_put_contents($cache_files_filename, '<?php $cache_files = '.var_export($extra_files, TRUE).';'));
+      $base_path .= DIRECTORY_SEPARATOR;
     }
 
-    // Actually save the cache
-    return $save_cache AND is_int(file_put_contents($cache_filename, $data));
+    return $base_path;
   }
 }

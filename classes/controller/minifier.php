@@ -6,154 +6,203 @@ class Controller_Minifier extends Controller
   {
     $this->response->headers('Content-Type', 'text/css; charset=utf-8');
 
-    $files = $this->get_file_list('css');
-    if (empty($files))
+    // Fetch the data from the cache file
+    $data = $this->get_data('css');
+    if (empty($data))
     {
       return;
     }
 
-    // get_cache will check if the cache is stale or not.
-    $cached = Minifier::get_cache('css', $files);
-    if ( ! empty($cached))
+    // If the files have modified, we need to regen cache
+    if ($this->stale_data($data))
     {
-      $this->response->body($cached);
-      return;
+      $output = '';
+      $files = array_keys($data['files']);
+      $data['extra_files'] = array(); // Reset to avoid stale files via @import etc
+      foreach ($files as $file)
+      {
+        $extension = pathinfo($file, PATHINFO_EXTENSION);
+        if (in_array($extension, array('sass', 'scss')))
+        {
+          require_once Kohana::find_file('vendor', 'phpsass/SassParser');
+          $options = array(
+            'style' => 'expanded',
+            'cache' => FALSE,
+            'syntax' => $extension,
+            'debug' => FALSE,
+            'callbacks' => array(),
+          );
+          $parser = new SassParser($options);
+          try
+          {
+            $output .= $parser->toCss($file);
+            $data['extra_files'] += $parser->getParsedFiles();
+          }
+          catch (Exception $e)
+          {
+            Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
+          }
+        }
+        else if ($extension == 'less')
+        {
+          require_once Kohana::find_file('vendor', 'lessphp/lessc.inc');
+          $less = new lessc;
+          try
+          {
+            $output .= $less->compileFile($file);
+
+            // Get the parsed files and remove the file that was requested because we track that already.
+            $less_files = $less->allParsedFiles();
+            unset($less_files[$file]);
+
+            $data['extra_files'] += $less_files;
+          }
+          catch (Exception $e)
+          {
+            Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
+          }
+        }
+        else
+        {
+          $output .= file_get_contents($file);
+        }
+      }
+
+      // Minifier the CSS
+      require_once Kohana::find_file('vendor', 'cssmin/cssmin');
+      $cssmin = new CSSmin;
+      $output = $cssmin->run($output);
+
+      // Cache this (new) version, update the actual files too!
+      $data['cache'] = $output;
+      $data['cache_gz'] = gzencode($output);
+
+      Minifier::set_cache('css', $data);
     }
 
-    $output = '';
-    $extra_files = array();
-    foreach ($files as $file)
-    {
-      $extension = pathinfo($file, PATHINFO_EXTENSION);
-      if (in_array($extension, array('sass', 'scss')))
-      {
-        require_once Kohana::find_file('vendor', 'phpsass/SassParser');
-        $options = array(
-          'style' => 'expanded',
-          'cache' => FALSE,
-          'syntax' => $extension,
-          'debug' => FALSE,
-          'callbacks' => array(),
-        );
-        $parser = new SassParser($options);
-
-        try
-        {
-          $output .= $parser->toCss($file);
-          $extra_files = array_merge($extra_files, array_keys($parser->getParsedFiles()));
-        }
-        catch (Exception $e)
-        {
-          Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
-        }
-      }
-      else if ($extension == 'less')
-      {
-        require_once Kohana::find_file('vendor', 'lessphp/lessc.inc');
-        $less = new lessc;
-        try
-        {
-          $output .= $less->compileFile($file);
-
-          // Get the parsed files and remove the file that was requested because we track that already.
-          $less_files = $less->allParsedFiles();
-          unset($less_files[$file]);
-
-          $extra_files = array_merge($extra_files, array_keys($less_files));
-        }
-        catch (Exception $e)
-        {
-          Kohana::$log->add(Log::ERROR, Kohana_Exception::text($e))->write();
-        }
-      }
-      else
-      {
-        $output .= file_get_contents($file);
-      }
-    }
-
-    require_once Kohana::find_file('vendor', 'cssmin/cssmin');
-    $cssmin = new CSSmin;
-    $output = $cssmin->run($output);
-
-    // Cache this (new) version
-    Minifier::set_cache('css', $files, $output, $extra_files);
-
-    $this->response->body($output);
+    // This will set the body appropriately - GZip'd if possible.
+    $this->output_data($data);
   }
 
   public function action_js()
   {
     $this->response->headers('Content-Type', 'text/javascript; charset=utf-8');
 
-    $files = $this->get_file_list('js');
-    if (empty($files))
+    $data = $this->get_data('js');
+    if (empty($data))
     {
       return;
     }
 
-    // get_cache will check if the cache is stale or not.
-    $cached = Minifier::get_cache('js', $files);
-    if ( ! empty($cached))
+    // If there is no cache set, or the files have modified, we need to regen cache
+    if ($this->stale_data($data))
     {
-      $this->response->body($cached);
-      return;
+      $output = '';
+      $files = array_keys($data['files']);
+      foreach ($files as $file)
+      {
+        // Add a ; so files end properly.
+        $output .= ';'.file_get_contents($file);
+      }
+
+      require_once Kohana::find_file('vendor', 'jsmin/jsmin');
+      $output = JSMin::minify($output);
+
+      // Cache this (new) version
+      $data['cache'] = $output;
+      $data['cache_gz'] = gzencode($output);
+
+      Minifier::set_cache('js', $data);
     }
 
-    $output = '';
-    foreach ($files as $file)
-    {
-      // Add a ; so files end properly.
-      $output .= ';'.file_get_contents($file);
-    }
-
-    require_once Kohana::find_file('vendor', 'jsmin/jsmin');
-    $output = JSMin::minify($output);
-
-    // Cache this (new) version
-    Minifier::set_cache('js', $files, $output);
-
-    $this->response->body($output);
+    // This will set the body appropriately - GZip'd if possible.
+    $this->output_data($data);
   }
 
-  private function get_file_list($type)
-  {
-    $base_path = $this->get_base_path($type);
-    $base_path_len = strlen($base_path);
-    $raw_files = preg_split('/,/', $this->request->param('files', ''), -1, PREG_SPLIT_NO_EMPTY);
-
-    $files = array();
-    foreach ($raw_files as $file)
-    {
-      if (substr($file, 0, 1) != '/')
-      {
-        $file = realpath($base_path . $file);
-      }
-      else
-      {
-        $file = realpath($file);
-      }
-
-      // Make sure file is in the base path and is readable
-      if ( ! strncmp($file, $base_path, $base_path_len) AND is_readable($file))
-      {
-        $files[] = $file;
-      }
-    }
-
-    return $files;
-  }
-
-  private function get_base_path($type)
+  protected function get_data($type)
   {
     $config = Kohana::$config->load('minifier');
-    $base_path = $config->get($type.'_base_path');
+    $directory = $config->get($type.'_cache_path');
 
-    if (substr($base_path, -1) != DIRECTORY_SEPARATOR)
+    $file_key = $this->request->param('file_hash', '');
+    if (empty($file_key) || ! is_readable($directory.DIRECTORY_SEPARATOR.$file_key))
     {
-      $base_path .= DIRECTORY_SEPARATOR;
+      return FALSE;
     }
 
-    return $base_path;
+    $data = unserialize(file_get_contents($directory.DIRECTORY_SEPARATOR.$file_key));
+
+    // Ensure the file_hash is present in the data as thats the cahe filename - incase the files list changes
+    $data['file_hash'] = $this->request->param('file_hash', '');
+
+    return $data;
+  }
+
+  protected function files_modified(&$files, $x)
+  {
+    $modified = FALSE;
+
+    // Loop through all the files regardless as it allows
+    // $files to be populated with up to date mtimes
+    foreach ($files as $file => &$mtime)
+    {
+      $current_mtime = @filemtime($file);
+      if (($current_mtime > $mtime) || ($current_mtime === FALSE))
+      {
+        $mtime = $current_mtime;
+        $modified = TRUE;
+      }
+    }
+
+    return $modified;
+  }
+
+  protected function stale_data(&$data)
+  {
+    $modified = FALSE;
+
+    if ($this->files_modified($data['files'], 'base'))
+    {
+      $modified = TRUE;
+    }
+
+    if ( ! empty($data['extra_files']) && $this->files_modified($data['extra_files'], 'extra'))
+    {
+      $modified = TRUE;
+    }
+
+    return $modified;
+  }
+
+  protected function output_data($data)
+  {
+    // Default to not gzipping output
+    $gzip = FALSE;
+
+    // We can only gzip if headers not sent
+    if ( ! headers_sent())
+    {
+      $accept_encoding = $_SERVER['HTTP_ACCEPT_ENCODING'];
+      if (strpos($accept_encoding, 'x-gzip') !== FALSE)
+      {
+        $gzip = 'x-gzip';
+      }
+      else if (strpos($accept_encoding, 'gzip') !== FALSE)
+      {
+        $gzip = 'gzip';
+      }
+    }
+
+    // Not gzipping?
+    if ($gzip === FALSE)
+    {
+      $this->response->body($data['cache']);
+    }
+    else
+    {
+      header('Content-Encoding: '.$gzip);
+      header('Content-Length: '.strlen($data['cache_gz']));
+      $this->response->body($data['cache_gz']);
+    }
   }
 }
