@@ -13,8 +13,8 @@ class Controller_Minifier extends Controller
       return;
     }
 
-    // If the files have modified, we need to regen cache
-    if ($this->stale_data($data))
+    // Stale cache?
+    if ($this->stale_cache('css', $data))
     {
       $output = '';
       $files = array_keys($data['files']);
@@ -94,8 +94,8 @@ class Controller_Minifier extends Controller
       return;
     }
 
-    // If there is no cache set, or the files have modified, we need to regen cache
-    if ($this->stale_data($data))
+    // Stale cache?
+    if ($this->stale_cache('js', $data))
     {
       $output = '';
       $files = array_keys($data['files']);
@@ -138,7 +138,7 @@ class Controller_Minifier extends Controller
     return $data;
   }
 
-  protected function files_modified(&$files, $x)
+  protected function files_modified(&$files)
   {
     $modified = FALSE;
 
@@ -172,6 +172,33 @@ class Controller_Minifier extends Controller
     }
 
     return $modified;
+  }
+
+  protected function stale_cache($type, &$data)
+  {
+    $config = Kohana::$config->load('minifier');
+    $mode = $config->get($type.'_cache_mode');
+
+    switch ($mode)
+    {
+      // If no caching, don't bother checking the files
+      case Minifier::CACHE_NONE:
+      {
+        return TRUE;
+      }
+
+      // If cache is auto, it depends on the files being modified (or stale data)
+      case Minifier::CACHE_AUTO:
+      {
+        return $this->stale_data($data);
+      }
+
+      // If cache is perm, then we're only stale if the cache key doesn't exist
+      case Minifier::CACHE_PERM:
+      {
+        return empty($data['cache']);
+      }
+    }
   }
 
   protected function output_data($data)

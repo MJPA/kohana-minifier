@@ -2,6 +2,15 @@
 
 class Kohana_Minifier
 {
+  /* Nothing is cached, files will be regenerated all the time */
+  const CACHE_NONE = 0;
+
+  /* Auto caching, useful for dev env - files will be regenerated when needed */
+  const CACHE_AUTO = 1;
+
+  /* Permanent caching - for production - files will never be regenerated */
+  const CACHE_PERM = 2;
+
   private static $_data = array(
     'css' => array('*' => array()),
     'js' => array('*' => array()),
