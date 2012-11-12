@@ -17,6 +17,16 @@ class Kohana_Minifier
     self::_add_data('js', $js, $section);
   }
 
+  public static function get_css($sections = NULL, $query = array(), $attributes = array(), $clear = TRUE)
+  {
+    return self::_get_type('css', 'style', $sections, $query, $attributes, $clear);
+  }
+
+  public static function get_js($sections = NULL, $query = array(), $attributes = array(), $clear = TRUE)
+  {
+    return self::_get_type('js', 'script', $sections, $query, $attributes, $clear);
+  }
+
   private static function _add_data($type, $data, $section = '*')
   {
     if ( ! array_key_exists($type, self::$_data))
@@ -43,17 +53,7 @@ class Kohana_Minifier
     return TRUE;
   }
 
-  public static function get_css($sections = NULL, $query = array())
-  {
-    return self::_get_type('css', 'style', $sections, $query);
-  }
-
-  public static function get_js($sections = NULL, $query = array())
-  {
-    return self::_get_type('js', 'script', $sections, $query);
-  }
-
-  private static function _get_type($type, $method, $sections = NULL, $query = array())
+  private static function _get_type($type, $method, $sections = NULL, $query = array(), $attributes = array(), $clear = TRUE)
   {
     if ($sections === NULL)
     {
@@ -89,8 +89,14 @@ class Kohana_Minifier
           $url .= '?'.http_build_query($query);
         }
 
-        $output .= HTML::$method($url);
+        $output .= HTML::$method($url, $attributes);
       }
+    }
+
+    // Clear the requested sections to allow for get_css() / get_js() to catch any remaining sections
+    if ($clear === TRUE)
+    {
+      self::$_data[$type] = array_diff_key(self::$_data[$type], array_fill_keys($sections, TRUE));
     }
 
     return $output;
