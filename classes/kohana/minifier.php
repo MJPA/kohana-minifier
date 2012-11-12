@@ -1,7 +1,7 @@
 <?php defined('SYSPATH') or die('No direct script access.');
 
-class Kohana_Minifier
-{
+class Kohana_Minifier {
+
   /* Nothing is cached, files will be regenerated all the time */
   const CACHE_NONE = 0;
 

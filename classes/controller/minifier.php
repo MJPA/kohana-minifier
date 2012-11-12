@@ -1,7 +1,7 @@
 <?php defined('SYSPATH') or die('No direct script access.');
 
-class Controller_Minifier extends Controller
-{
+class Controller_Minifier extends Controller {
+
   public function action_css()
   {
     $this->response->headers('Content-Type', 'text/css; charset=utf-8');
@@ -203,12 +203,26 @@ class Controller_Minifier extends Controller
 
   protected function output_data($data)
   {
-    // Default to not gzipping output
-    $gzip = FALSE;
+    // E-Tag header
+    $etag_hash = md5($data['cache']);
+    $this->response->headers('ETag', '"'.$etag_hash.'"');
 
-    // We can only gzip if headers not sent
-    if ( ! headers_sent())
+    // Client sending us an ETag?
+    if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && ($_SERVER['HTTP_IF_NONE_MATCH'] == '"'.$etag_hash.'"'))
     {
+      $this->response->status(304);
+      $this->response->headers('Content-Length', '0');
+    }
+    else
+    {
+      // Default to not gzipping output
+      $gzip = FALSE;
+
+      // Last modified header
+      $this->response->headers('Cache-Control', 'must-revalidate');
+      $this->response->headers('Last-modified', gmdate('r', max($data['files'])));
+
+      // Check for GZip support
       $accept_encoding = $_SERVER['HTTP_ACCEPT_ENCODING'];
       if (strpos($accept_encoding, 'x-gzip') !== FALSE)
       {
@@ -218,18 +232,18 @@ class Controller_Minifier extends Controller
       {
         $gzip = 'gzip';
       }
-    }
 
-    // Not gzipping?
-    if ($gzip === FALSE)
-    {
-      $this->response->body($data['cache']);
-    }
-    else
-    {
-      header('Content-Encoding: '.$gzip);
-      header('Content-Length: '.strlen($data['cache_gz']));
-      $this->response->body($data['cache_gz']);
+      // Not gzipping?
+      if ($gzip === FALSE)
+      {
+        $this->response->body($data['cache']);
+      }
+      else
+      {
+        $this->response->headers('Content-Encoding', $gzip);
+        $this->response->headers('Content-Length', strlen($data['cache_gz']));
+        $this->response->body($data['cache_gz']);
+      }
     }
   }
 }
