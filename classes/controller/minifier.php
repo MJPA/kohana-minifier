@@ -4,7 +4,7 @@ class Controller_Minifier extends Controller {
 
   public function action_css()
   {
-    $this->response->headers('Content-Type', 'text/css; charset=utf-8');
+  	$this->response->headers('Content-Type', 'text/css; charset=utf-8');
 
     // Fetch the data from the cache file
     $data = $this->get_data('css');
@@ -74,6 +74,7 @@ class Controller_Minifier extends Controller {
       $output = $cssmin->run($output);
 
       // Cache this (new) version, update the actual files too!
+
       $data['cache'] = $output;
       $data['cache_gz'] = gzencode($output);
 
@@ -109,6 +110,7 @@ class Controller_Minifier extends Controller {
       $output = JSMin::minify($output);
 
       // Cache this (new) version
+
       $data['cache'] = $output;
       $data['cache_gz'] = gzencode($output);
 
@@ -130,6 +132,7 @@ class Controller_Minifier extends Controller {
       return FALSE;
     }
 
+    // echo Debug::vars($directory.DIRECTORY_SEPARATOR.$file_key);exit;
     $data = unserialize(file_get_contents($directory.DIRECTORY_SEPARATOR.$file_key));
 
     // Ensure the file_hash is present in the data as thats the cahe filename - incase the files list changes
@@ -240,8 +243,8 @@ class Controller_Minifier extends Controller {
       }
       else
       {
-        $this->response->headers('Content-Encoding', $gzip);
-        $this->response->headers('Content-Length', strlen($data['cache_gz']));
+      	$this->response->headers('Content-Encoding', $gzip);
+        $this->response->headers('Content-Length', (string) strlen($data['cache_gz']));
         $this->response->body($data['cache_gz']);
       }
     }
