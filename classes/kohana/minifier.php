@@ -131,6 +131,12 @@ class Kohana_Minifier {
 
   public static function set_cache($type, $data)
   {
+  	// Nothing to cache!
+    if ( empty($data['files']) ):
+    	return false;
+    endif;
+    
+    
     if (empty($data['file_hash']))
     {
       $cache_filename = self::get_cache_filename($type, array_keys($data['files']));
@@ -139,6 +145,8 @@ class Kohana_Minifier {
     {
       $cache_filename = self::get_cache_location($type).DIRECTORY_SEPARATOR.$data['file_hash'];
     }
+    
+    
     $cache_data = serialize($data);
 
     $bytes = file_put_contents($cache_filename, $cache_data);
