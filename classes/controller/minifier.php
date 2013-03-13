@@ -132,7 +132,6 @@ class Controller_Minifier extends Controller {
       return FALSE;
     }
 
-    // echo Debug::vars($directory.DIRECTORY_SEPARATOR.$file_key);exit;
     $data = unserialize(file_get_contents($directory.DIRECTORY_SEPARATOR.$file_key));
 
     // Ensure the file_hash is present in the data as thats the cahe filename - incase the files list changes
